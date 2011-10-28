@@ -1,0 +1,9 @@
+*.jar
+.DS_Store
+*.zip
+.classpath
+.settings
+.project
+target
+.class
+.pyc
