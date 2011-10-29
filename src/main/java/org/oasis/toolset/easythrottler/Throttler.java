@@ -2,6 +2,8 @@ package org.oasis.toolset.easythrottler;
 
 import java.util.HashSet;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
@@ -19,38 +21,48 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class Throttler {
 
-    private BlockingQueue<Long> tokens = new LinkedBlockingQueue<Long>(2);
-    private Thread dispatcher;
+    private static final Long TOKEN = 0L; 
+    private BlockingQueue<Long> tokens = new LinkedBlockingQueue<Long>(1);
+    private Timer dispatchTimer;
+    private Timer reportTimer;
     private long interval;
-    private boolean running;
+    private AtomicInteger count;
+    private long lastTimestamp;
 
     public void start() {
-        dispatcher = new Thread() {
+        
+        count = new AtomicInteger(0);
+        lastTimestamp = System.currentTimeMillis();
+
+        dispatchTimer = new Timer("Scheduler", true);
+        dispatchTimer.schedule(new TimerTask() {
+            
+            @Override
             public void run() {
-                running = true;
-                long now = 0;
-                long tick = System.currentTimeMillis();
-                while (running) {
-                    try {
-                        tokens.put(tick);
-                    } catch (InterruptedException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
-                    tick += interval;
-                    now = System.currentTimeMillis();
-                    tick = tick < now ? now : tick;
+                try {
+                    tokens.put(TOKEN);
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
                 }
             }
-        };
-        dispatcher.start();
+        }, 0, interval);
+        
+        reportTimer = new Timer("Reporter", true);
+        reportTimer.schedule(new TimerTask() {
+            
+            @Override
+            public void run() {
+                    double rate = count.getAndSet(0) * 1000.0 / 5000.0;
+                    System.out.println("RPS now is " + rate);
+            }
+        }, 0, 5000);
     }
 
     public void stop() throws InterruptedException {
         tokens.drainTo(new HashSet<Long>());
-        running = false;
-        dispatcher.join();
-        dispatcher = null;
+        dispatchTimer.cancel();
+        reportTimer.cancel();
     }
 
     public void setRate(long interval) {
@@ -58,12 +70,8 @@ public class Throttler {
     }
 
     public void throttle() throws InterruptedException {
-        Long token = tokens.poll(10, TimeUnit.SECONDS);
-        long waitPeriod = token - System.currentTimeMillis();
-        if (waitPeriod > 0) {
-            //System.out.println("Sleep " + waitPeriod);
-            Thread.sleep(waitPeriod);
-        }
+        tokens.poll(10, TimeUnit.SECONDS);
+        count.incrementAndGet();
     }
 
     public static void main(String[] args) throws InterruptedException {
@@ -74,20 +82,15 @@ public class Throttler {
         CompletionService<String> completionService = new ExecutorCompletionService<String>(Executors.newFixedThreadPool(100));
 
         final long start = System.currentTimeMillis();
-        throttler.setRate(1);
+        throttler.setRate(20);
         throttler.start();
         
-        final AtomicInteger count = new AtomicInteger(0);
         for (int i = 0; i < totalRuns; i++) {
             completionService.submit(new Callable<String>() {
                 public String call() throws Exception {
                     throttler.throttle();
+                    
                     //Thread.sleep(rand.nextInt(1000));
-                    int c = count.incrementAndGet();
-                    if (c % 1000 == 0) {
-                        System.out.println("RPS now is "
-                                + (c * 1000.0 / (System.currentTimeMillis() - start)));
-                    }
                     return "OK";
                 }
             });
