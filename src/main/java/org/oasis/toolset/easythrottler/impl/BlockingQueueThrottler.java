@@ -7,14 +7,14 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
-import org.oasis.toolset.easythrottler.DynamicThrottler;
-import org.oasis.toolset.easythrottler.FeedbakProvider;
 import org.oasis.toolset.easythrottler.RequestThrottledException;
+import org.oasis.toolset.easythrottler.Startable;
 import org.oasis.toolset.easythrottler.ThrottleEventListener;
 import org.oasis.toolset.easythrottler.ThrottleException;
+import org.oasis.toolset.easythrottler.ThrottleRateTuner;
 import org.oasis.toolset.easythrottler.ThrottleStyle;
+import org.oasis.toolset.easythrottler.Throttler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
  * @author hsun
  * 
  */
-public class BlockingQueueThrottler implements DynamicThrottler {
+public class BlockingQueueThrottler implements Throttler {
 
     private static final Logger LOG = LoggerFactory.getLogger(BlockingQueueThrottler.class);
     private static final Boolean TOKEN = Boolean.TRUE;
@@ -32,11 +32,11 @@ public class BlockingQueueThrottler implements DynamicThrottler {
     private Semaphore semaphore;
     private BlockingQueue<Boolean> tokens;
     private List<ThrottleEventListener> eventListeners;
-    private AtomicLong callIntervalNanos;
-    private FeedbakProvider feedbackProvider;
+    private ThrottleRateTuner tuner;
 
     private String name;
     private boolean isThrottleOn;
+    private boolean paused;
     private ThrottleStyle style;
     private long timeoutMillis;
 
@@ -44,8 +44,8 @@ public class BlockingQueueThrottler implements DynamicThrottler {
 
         private BlockingQueueThrottler throttler;
 
-        public Builder(String name, double maxCallRate) {
-            this.throttler = new BlockingQueueThrottler(name, maxCallRate);
+        public Builder(String name) {
+            this.throttler = new BlockingQueueThrottler(name);
         }
 
         public Builder withFailStyle() {
@@ -65,28 +65,35 @@ public class BlockingQueueThrottler implements DynamicThrottler {
     }
 
     // use builder to create instance
-    BlockingQueueThrottler(String name, double maxCallRate) {
+    BlockingQueueThrottler(String name) {
         this.name = name;
-        this.callIntervalNanos = new AtomicLong((long)(1E9 / maxCallRate));
         this.style = ThrottleStyle.FAIL;
         this.semaphore = new Semaphore(1);
         this.tokens = new LinkedBlockingQueue<Boolean>(1);
         this.eventListeners = new LinkedList<ThrottleEventListener>();
         this.isThrottleOn = false;
+        this.paused = false;
     }
 
-    public void on() {
+    @Override
+    public void start() {
         Thread t = new Thread() {
             public void run() {
                 try {
-                    if (feedbackProvider != null) {
-                        feedbackProvider.start();
+                    if (tuner != null && tuner instanceof Startable) {
+                        ((Startable)tuner).start();
                     }
+                    for (ThrottleEventListener listener : eventListeners) {
+                        if (listener instanceof Startable) {
+                            ((Startable)listener).start();
+                        }
+                    }
+
                     semaphore.acquire();
                     isThrottleOn = true;
                     LOG.info("Scheduler is on.");
                     while (isThrottleOn) {
-                        semaphore.tryAcquire(1, callIntervalNanos.get(), TimeUnit.NANOSECONDS);
+                        semaphore.tryAcquire(1, tuner.getCallIntervalNanos(), TimeUnit.NANOSECONDS);
                         tokens.put(TOKEN);
                     }
                 } catch (InterruptedException e) {
@@ -96,8 +103,13 @@ public class BlockingQueueThrottler implements DynamicThrottler {
                     isThrottleOn = false;
                     tokens.drainTo(new HashSet<Boolean>());
                     semaphore.release();
-                    if (feedbackProvider != null) {
-                        feedbackProvider.stop();
+                    for (ThrottleEventListener listener : eventListeners) {
+                        if (listener instanceof Startable) {
+                            ((Startable)listener).stop();
+                        }
+                    }
+                    if (tuner != null && tuner instanceof Startable) {
+                        ((Startable)tuner).stop();
                     }
                     LOG.info("Scheduler is off.");
                 }
@@ -107,12 +119,23 @@ public class BlockingQueueThrottler implements DynamicThrottler {
         t.start();
     }
 
-    public void off() {
+    @Override
+    public void stop() {
         isThrottleOn = false;
     }
 
+    @Override
+    public void pause() {
+        paused = true;
+    }
+
+    @Override
+    public void resume() {
+        paused = false;
+    }
+
     public void throttle() {
-        if (!isThrottleOn) {
+        if (!isThrottleOn || paused) {
             notifySuccess();
             return;
         }
@@ -165,12 +188,10 @@ public class BlockingQueueThrottler implements DynamicThrottler {
     @Override
     public void registerThrottleEventListener(ThrottleEventListener listener) {
         this.eventListeners.add(listener);
-        listener.start();
     }
 
     @Override
     public void unregisterThrottleEventListener(ThrottleEventListener listener) {
-        listener.stop();
         this.eventListeners.remove(listener);
     }
 
@@ -180,19 +201,7 @@ public class BlockingQueueThrottler implements DynamicThrottler {
     }
 
     @Override
-    public void setThrottleRate(double desiredRate) {
-        this.callIntervalNanos.set((long)(1.0E9/desiredRate));
-    }
-
-    @Override
-    public void adjustThrottleRate(double changePercentage) {
-        long currentCallIntervalNanos = this.callIntervalNanos.get();
-        long adjustedCallIntervalNanos = (long) (currentCallIntervalNanos * (1.0 - changePercentage / 100.0));
-        this.callIntervalNanos.set(adjustedCallIntervalNanos);
-    }
-
-    @Override
-    public void setFeedbackProvider(FeedbakProvider feedbackProvider) {
-        this.feedbackProvider = feedbackProvider;
+    public void setThrottleRateTuner(ThrottleRateTuner tuner) {
+        this.tuner = tuner;
     }
 }

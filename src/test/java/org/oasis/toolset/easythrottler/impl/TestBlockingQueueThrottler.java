@@ -1,5 +1,6 @@
 package org.oasis.toolset.easythrottler.impl;
 
+import java.lang.management.ManagementFactory;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
@@ -7,21 +8,37 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
+import javax.management.ObjectName;
+
+import org.oasis.toolset.easythrottler.ThrottleEventListener;
+import org.oasis.toolset.easythrottler.ThrottleMonitor;
+import org.oasis.toolset.easythrottler.ThrottleRateTuner;
+import org.oasis.toolset.easythrottler.ThrottleMonitorMBean;
+
 public class TestBlockingQueueThrottler {
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws Exception {
 
-        final int totalRuns = 6000;
+        final int totalRuns = 60000;
         
-        final BlockingQueueThrottler throttler = new BlockingQueueThrottler.Builder("Test Throttler", 100.0)
+        final BlockingQueueThrottler throttler = new BlockingQueueThrottler.Builder("Test Throttler")
             .withBlockStyle(10000).build();
-        CallRateMonitor monitor = new CallRateMonitor();
-        throttler.registerThrottleEventListener(monitor);
-        CallRateLogger logger = new CallRateLogger(monitor, 5000L);
-        CallRateBasedFeedbackProvider p = new CallRateBasedFeedbackProvider(throttler, monitor, 5000L, 100.0, 0.5, 2.0);
-        //throttler.setFeedbackProvider(p);
-        throttler.on();
-        logger.start();
+        CallRateLogger logger = new CallRateLogger(5000L);
+        ThrottleRateTuner tuner = new DynamicRateTuner(100.0, 5000L, 0.5, 2.0);
+        ThrottleRateTuner tuner2 = new FixedRateTuner(10.0);
+        ThrottleMonitorMBean mbean = new ThrottleMonitor(throttler, 5000L);
+        
+        MBeanServer mserver = ManagementFactory.getPlatformMBeanServer();
+        mserver.registerMBean(mbean, new ObjectName("org.oasis.toolset.easythrottler:type=ThrottleMonitor"));
+        
+        throttler.registerThrottleEventListener((ThrottleEventListener)logger);
+        throttler.setThrottleRateTuner(tuner2);
+        throttler.start();
         
         final Random rand = new Random();
         ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(100);
@@ -43,9 +60,7 @@ public class TestBlockingQueueThrottler {
             completed++;
         }
         
-        logger.stop();
-        throttler.off();
-        throttler.unregisterThrottleEventListener(monitor);
+        throttler.stop();
         executor.shutdown();
         
         System.out.println("Final Average: "

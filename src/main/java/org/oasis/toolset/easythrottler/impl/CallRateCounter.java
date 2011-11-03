@@ -2,38 +2,26 @@ package org.oasis.toolset.easythrottler.impl;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.oasis.toolset.easythrottler.ThrottleEventListener;
-
-public class CallRateMonitor implements ThrottleEventListener {
+public class CallRateCounter {
 
     private AtomicLong successCount;
     private AtomicLong failureCount;
 
-    public CallRateMonitor() {
+    public CallRateCounter() {
         this.successCount = new AtomicLong(0L);
         this.failureCount = new AtomicLong(0L);
     }
 
-    @Override
-    public void succeded() {
+    public void incSuccess() {
         if (successCount.incrementAndGet() == Long.MAX_VALUE) {
             successCount.set(0L);
         }
     }
 
-    @Override
-    public void failed() {
+    public void incFailure() {
         if (failureCount.incrementAndGet() == Long.MAX_VALUE) {
             failureCount.set(0L);
         }
-    }
-
-    @Override
-    public void start() {
-     }
-
-    @Override
-    public void stop() {
     }
 
     public void reset() {
@@ -48,10 +36,4 @@ public class CallRateMonitor implements ThrottleEventListener {
     public long getFailureCount() {
         return failureCount.get();
     }
-
-    public static void main(String[] args) {
-        AtomicLong c = new AtomicLong(Long.MAX_VALUE);
-        System.out.println(c.incrementAndGet());
-    }
-    
 }

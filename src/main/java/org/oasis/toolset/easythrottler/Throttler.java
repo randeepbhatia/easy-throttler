@@ -1,13 +1,12 @@
 package org.oasis.toolset.easythrottler;
 
-public interface Throttler {
+public interface Throttler extends Startable {
 
     String getName();
-    void on();
-    void off();
     void throttle();
-    void setThrottleRate(double desiredRate);
+    void pause();
+    void resume();
     void registerThrottleEventListener(ThrottleEventListener listener);
     void unregisterThrottleEventListener(ThrottleEventListener listener);
-    void adjustThrottleRate(double percentage);
+    void setThrottleRateTuner(ThrottleRateTuner tuner);
 }
