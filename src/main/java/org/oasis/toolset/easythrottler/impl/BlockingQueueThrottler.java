@@ -19,9 +19,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Main entry point to use easy throttler.
- * 
  * @author hsun
+ * 
+ *         A implementation of @Throttler based on BlockingQueue.
  * 
  */
 public class BlockingQueueThrottler implements Throttler {
@@ -40,6 +40,9 @@ public class BlockingQueueThrottler implements Throttler {
     private ThrottleStyle style;
     private long timeoutMillis;
 
+    /**
+     * Class used to build an instance of BlockingQueueThrottler.
+     */
     public static class Builder {
 
         private BlockingQueueThrottler throttler;
@@ -81,17 +84,17 @@ public class BlockingQueueThrottler implements Throttler {
             public void run() {
                 try {
                     if (tuner != null && tuner instanceof Startable) {
-                        ((Startable)tuner).start();
+                        ((Startable) tuner).start();
                     }
                     for (ThrottleEventListener listener : eventListeners) {
                         if (listener instanceof Startable) {
-                            ((Startable)listener).start();
+                            ((Startable) listener).start();
                         }
                     }
 
                     semaphore.acquire();
                     isThrottleOn = true;
-                    LOG.info("Scheduler is on.");
+                    LOG.info("Scheduler is turned on.");
                     while (isThrottleOn) {
                         semaphore.tryAcquire(1, tuner.getCallIntervalNanos(), TimeUnit.NANOSECONDS);
                         tokens.put(TOKEN);
@@ -105,11 +108,11 @@ public class BlockingQueueThrottler implements Throttler {
                     semaphore.release();
                     for (ThrottleEventListener listener : eventListeners) {
                         if (listener instanceof Startable) {
-                            ((Startable)listener).stop();
+                            ((Startable) listener).stop();
                         }
                     }
                     if (tuner != null && tuner instanceof Startable) {
-                        ((Startable)tuner).stop();
+                        ((Startable) tuner).stop();
                     }
                     LOG.info("Scheduler is off.");
                 }
@@ -134,6 +137,7 @@ public class BlockingQueueThrottler implements Throttler {
         paused = false;
     }
 
+    @Override
     public void throttle() {
         if (!isThrottleOn || paused) {
             notifySuccess();

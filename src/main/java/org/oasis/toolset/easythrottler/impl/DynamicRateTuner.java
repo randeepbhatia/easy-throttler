@@ -10,6 +10,12 @@ import org.oasis.toolset.easythrottler.ThrottleRateTuner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * @author hsun
+ * 
+ * A refrence implementation on how to dynamically adjust request rate.
+ * 
+ */
 public class DynamicRateTuner implements ThrottleRateTuner, ThrottleEventListener, Startable {
 
     private static final Logger LOG = LoggerFactory.getLogger(DynamicRateTuner.class);
@@ -24,22 +30,33 @@ public class DynamicRateTuner implements ThrottleRateTuner, ThrottleEventListene
     private double desiredCallRate;
     private AtomicLong currentCallIntervalNanos;
 
+    /**
+     * Creates an instance.
+     * 
+     * @param desiredRate desired request rate per second.
+     * @param monitorIntervalMillis time interval to measue the request rate.
+     * @param threshold the minimum request rate difference that will trigger the rate adjust action.
+     * @param adjustStep the percentage of rate to adjust per measuring cycle.
+     */
     public DynamicRateTuner(double desiredRate, long monitorIntervalMillis, double threshold,
             double adjustStep) {
+        
         this.desiredCallRate = desiredRate;
-        this.currentCallIntervalNanos = new AtomicLong(convertRateToCallIntervalNanos(desiredRate));
-        this.rateCounter = new CallRateCounter();
         this.monitorIntervalMillis = monitorIntervalMillis;
         this.threshold = threshold;
         this.adjustStep = adjustStep;
+
+        this.currentCallIntervalNanos = new AtomicLong(convertRateToCallIntervalNanos(desiredRate));
+        this.rateCounter = new CallRateCounter();
         this.started = false;
     }
 
     @Override
-    public void start() {
+    public synchronized void start() {
         if (started) {
             return;
         }
+        started = true;
 
         monitorTimer = new Timer("CallRateMonitor Timer", true);
         monitorTimer.schedule(new TimerTask() {
@@ -48,6 +65,7 @@ public class DynamicRateTuner implements ThrottleRateTuner, ThrottleEventListene
             public void run() {
                 adjustCallInterval();
             }
+
         }, 0, monitorIntervalMillis);
         started = true;
     }

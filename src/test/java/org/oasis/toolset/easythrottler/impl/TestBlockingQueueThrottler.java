@@ -8,17 +8,13 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import javax.management.InstanceAlreadyExistsException;
-import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
-import javax.management.MalformedObjectNameException;
-import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
 import org.oasis.toolset.easythrottler.ThrottleEventListener;
 import org.oasis.toolset.easythrottler.ThrottleMonitor;
-import org.oasis.toolset.easythrottler.ThrottleRateTuner;
 import org.oasis.toolset.easythrottler.ThrottleMonitorMBean;
+import org.oasis.toolset.easythrottler.ThrottleRateTuner;
 
 public class TestBlockingQueueThrottler {
 

@@ -8,6 +8,11 @@ import org.oasis.toolset.easythrottler.impl.CallRateCounter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * @author hsun
+ * 
+ *         Monitors the status of a throttler instance.
+ */
 public class ThrottleMonitor implements ThrottleMonitorMBean, Startable, ThrottleEventListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(ThrottleMonitor.class);
@@ -30,7 +35,7 @@ public class ThrottleMonitor implements ThrottleMonitorMBean, Startable, Throttl
         this.throttler.registerThrottleEventListener(this);
     }
 
-        @Override
+    @Override
     public void succeded() {
         counter.incSuccess();
     }
@@ -50,8 +55,14 @@ public class ThrottleMonitor implements ThrottleMonitorMBean, Startable, Throttl
                 long successes = counter.getSuccessCount();
                 long failures = counter.getFailureCount();
                 if (successes >= lastSuccess && failures >= lastFailure) {
-                    succeededCallRate.set((successes - lastSuccess) * 1000.0 / monitorIntervalMillis);
+
+                    // it is likely the scheduled timer will not wake up at exact time
+                    // specified by monitorIntervalMillis, but most application probably
+                    // won't require that kind of accuracy
+                    succeededCallRate.set((successes - lastSuccess) * 1000.0
+                            / monitorIntervalMillis);
                     failedCallRate.set((failures - lastFailure) * 1000.0 / monitorIntervalMillis);
+
                     LOG.info("Call rates. Success: {} Failure: {}",
                             succeededCallRate.get(),
                             failedCallRate.get());

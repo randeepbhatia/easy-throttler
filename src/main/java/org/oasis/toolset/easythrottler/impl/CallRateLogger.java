@@ -8,13 +8,19 @@ import org.oasis.toolset.easythrottler.ThrottleEventListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * @author hsun
+ *
+ * Used to log request rates.
+ * 
+ */
 public class CallRateLogger implements ThrottleEventListener, Startable {
 
     private static final Logger LOG = LoggerFactory.getLogger(CallRateLogger.class);
 
     private CallRateCounter rateCounter;
-    private long monitorIntervalMillis;
     private Timer monitorTimer;
+    private long monitorIntervalMillis;
     
     private long lastSuccess;
     private long lastFailure;
@@ -26,7 +32,7 @@ public class CallRateLogger implements ThrottleEventListener, Startable {
 
     @Override
     public void start() {
-        monitorTimer = new Timer("CallRateMonitor Timer", true);
+        monitorTimer = new Timer("CallRateMonitor Timer", true /* run as daemon */);
         monitorTimer.schedule(new TimerTask() {
 
             @Override
@@ -48,6 +54,7 @@ public class CallRateLogger implements ThrottleEventListener, Startable {
         }, 0, monitorIntervalMillis);
     }
 
+    @Override
     public void stop() {
         monitorTimer.cancel();
     }
