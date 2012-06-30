@@ -39,7 +39,7 @@ This is intended to be used with spring framework. In the spring framework conte
         ....
     </bean>
     
-Then we can add throttle to any public method inside a spring bean
+Then we can add throttle to any public method inside a spring bean::
 
     @Throttled(name="myThrottler")
     public void talk() {
