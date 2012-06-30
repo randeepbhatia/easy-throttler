@@ -68,7 +68,7 @@ public class BlockingQueueThrottler implements Throttler {
     }
 
     // use builder to create instance
-    BlockingQueueThrottler(String name) {
+    public BlockingQueueThrottler(String name) {
         this.name = name;
         this.style = ThrottleStyle.FAIL;
         this.semaphore = new Semaphore(1);
@@ -207,5 +207,17 @@ public class BlockingQueueThrottler implements Throttler {
     @Override
     public void setThrottleRateTuner(ThrottleRateTuner tuner) {
         this.tuner = tuner;
+    }
+
+    public void setEventListeners(List<ThrottleEventListener> eventListeners) {
+        this.eventListeners = eventListeners;
+    }
+
+    public void setStyle(ThrottleStyle style) {
+        this.style = style;
+    }
+
+    public void setTimeoutMillis(long timeoutMillis) {
+        this.timeoutMillis = timeoutMillis;
     }
 }

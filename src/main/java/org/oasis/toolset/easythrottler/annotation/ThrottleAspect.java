@@ -16,7 +16,7 @@ import org.springframework.beans.factory.BeanFactoryAware;
  *
  */
 @Aspect
-public class ThrootleAspect implements BeanFactoryAware {
+public class ThrottleAspect implements BeanFactoryAware {
 
     private BeanFactory beanFactory;
 

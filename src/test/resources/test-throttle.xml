@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:context="http://www.springframework.org/schema/context" xmlns:aop="http://www.springframework.org/schema/aop"
+  xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/aop
+         http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+  <aop:aspectj-autoproxy proxy-target-class="true" />
+
+  <bean id="embedded" class="org.oasis.toolset.easythrottler.EmbeddedThrottler">
+    <property name="throttler" ref="throttler" />
+  </bean>
+
+  <bean id="annotated" class="org.oasis.toolset.easythrottler.AnnotatedThrottler"/>
+
+  <bean id="throttler" class="org.oasis.toolset.easythrottler.impl.BlockingQueueThrottler">
+    <constructor-arg value="Test Throttler" />
+    <property name="style" value="BLOCK" />
+    <property name="timeoutMillis" value="5000" />
+    <property name="throttleRateTuner">
+      <bean class="org.oasis.toolset.easythrottler.impl.FixedRateTuner">
+        <constructor-arg value="50" />
+      </bean>
+    </property>
+    <property name="eventListeners">
+      <list>
+        <bean class="org.oasis.toolset.easythrottler.impl.CallRateLogger">
+          <constructor-arg value="2000" />
+        </bean>
+      </list>
+    </property>
+  </bean>
+
+  <bean id="throttleAspect" class="org.oasis.toolset.easythrottler.annotation.ThrottleAspect" />
+</beans>

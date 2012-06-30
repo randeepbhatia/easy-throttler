@@ -1,5 +1,8 @@
 package org.oasis.toolset.easythrottler.annotation;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 
 /**
  * @author hsun
@@ -8,6 +11,7 @@ package org.oasis.toolset.easythrottler.annotation;
  * with @ThrottleAspect in a Spring framework context.
  * 
  */
+@Retention(RetentionPolicy.RUNTIME)
 public @interface Throttled {
 
     /**
